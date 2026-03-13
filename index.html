@@ -79,21 +79,35 @@
                 prefix schema: <http://schema.org/>
                 prefix sdo: <https://schema.org/>
 
-                select ?paper ?projectTitle ?software (group_concat(distinct ?shortTitle; separator=", ") as ?dataUsed) where {
+                select ?paper ?paperTitle ?projectTitle ?softwareResult ?project (group_concat(distinct ?shortTitle; separator=", ") as ?dataUsed) 
+                where {
                 ?paper sdo:producer ?project .
                 ?paper a bibo:AcademicArticle .
+                ?paper dct:title ?paperTitle .
+                ?project dct:title ?projectTitle .
+                
+                # Link software to project
                 ?software sdo:producer ?project .
-                ?software a dcmi:Software .
                 ?software dct:creator ?softwareDeveloper .
+                
+                # Check for the specific type
+                OPTIONAL { 
+                    ?software a dcmi:Software .
+                    BIND(?software AS ?hasType)
+                }
+                
+                # If ?hasType is unbound (not dcmi:Software), bind an empty string
+                BIND(COALESCE(?hasType, "") AS ?softwareResult)
+
                 ?project dct:requires ?datasetHash .
                 ?datasetHash dct:alternative ?shortTitle .
                 ?dataset dct:alternative ?shortTitle .
-                ?dataset a schema:Dataset .   
-                ?project dct:title ?projectTitle .
+                ?dataset a schema:Dataset .    
+                
                 FILTER (regex(str(?paper), "${cleanDoi}", "i") ||
                         regex(str(?projectTitle), "${inputDoi}", "i")) .
                 } 
-                group by ?projectTitle ?software ?paper
+                group by ?projectTitle ?softwareResult ?paper ?project ?paperTitle
                 limit 100`;
             
             try {
@@ -114,12 +128,32 @@
                 return;
             }
 
-            let html = `<table><thead><tr><th>Project Title</th><th>Software (Code)</th><th>Datasets Used</th></tr></thead><tbody>`;
+            let html = `<table>
+                <thead>
+                    <tr>
+                        <th>Paper Title</th>
+                        <th>Project Title</th>
+                        <th>Software Result</th>
+                        <th>Data Used</th>
+                        <th>Paper URI</th>
+                        <th>Project URI</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
             results.forEach(res => {
+                // Formatting Software Link if it exists
+                const softwareHtml = res.softwareResult.value 
+                    ? `<a href="${res.softwareResult.value}" target="_blank">View Code</a>` 
+                    : "<em>None</em>";
+
                 html += `<tr>
+                    <td><strong>${res.paperTitle.value}</strong></td>
                     <td>${res.projectTitle.value}</td>
-                    <td><a href="${res.software.value}" target="_blank">View Repository</a></td>
+                    <td>${softwareHtml}</td>
                     <td>${res.dataUsed.value}</td>
+                    <td><a href="${res.paper.value}" target="_blank">Link</a></td>
+                    <td><a href="${res.project.value}" target="_blank">Link</a></td>
                 </tr>`;
             });
             html += "</tbody></table>";
