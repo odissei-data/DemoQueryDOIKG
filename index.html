@@ -104,8 +104,14 @@
                 ?dataset dct:alternative ?shortTitle .
                 ?dataset a schema:Dataset .    
                 
-                FILTER (regex(str(?paper), "${cleanDoi}", "i") ||
-                        regex(str(?projectTitle), "${inputDoi}", "i")) .
+
+                FILTER (
+                    regex(str(?paper), "${cleanDoi}", "i")  ||
+                    CONTAINS(LCASE(STR(?paperTitle)), "${inputDoi}") || 
+                    CONTAINS(LCASE(STR(?project)), "${inputDoi}") || 
+                    CONTAINS(LCASE(STR(?projectTitle)), "${inputDoi}") ||
+                    CONTAINS(LCASE(STR(?dataUsed)), "${inputDoi}")
+                )
                 } 
                 group by ?projectTitle ?softwareResult ?paper ?project ?paperTitle
                 limit 100`;
